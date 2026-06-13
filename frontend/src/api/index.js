@@ -1,4 +1,4 @@
-import { get, post} from "./axios";
+import { get, post, del } from "./axios";
 
 export const searchSongs = data => get("/songs", data);
 export const getSongsMeta = data => get("/songs-meta", data);
@@ -12,6 +12,8 @@ export const qrLoginCheck = qrKey => get("/account/qrlogin-check", {qrKey});
 export const getAllPlaylist = data => get("/playlists", data);
 export const getPlaylistDetail = playlistId => get(`/playlists/netease/${playlistId}/songs`);
 export const getJobDetail = jobId => get(`/sync-jobs/${jobId}`);
+export const getAllJobs = () => get("/sync-jobs", {});
+export const deleteJob = jobId => del(`/sync-jobs/${jobId}`);
 export const createSyncSongFromUrlJob = (url, songId = "") => {
     return post("/sync-jobs", {
         "jobType": "SyncSongFromUrl",

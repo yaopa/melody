@@ -3,6 +3,7 @@ import storage from "../utils/storage"
 
 const PathPlaylist = '/playlist';
 const PathSetting = '/setting';
+const PathTasks = '/tasks';
 
 const routes = [
     {
@@ -23,6 +24,11 @@ const routes = [
         path: PathSetting,
         name: "Setting",
         component: () => import('../views/pc/Setting.vue')   
+    },
+    {
+        path: PathTasks,
+        name: "Tasks",
+        component: () => import('../views/pc/Tasks.vue')
     },
 ]
 export const router = createRouter({

@@ -183,6 +183,7 @@ export default {
       navItems: [
         { label: "搜索", path: "/", icon: "bi bi-search" },
         { label: "我的歌单", path: "/playlist", icon: "bi bi-music-note-list" },
+        { label: "任务管理", path: "/tasks", icon: "bi bi-list-task" },
         { label: "我的音乐账号", path: "/account", icon: "bi bi-person" },
         { label: "设置", path: "/setting", icon: "bi bi-gear" },
       ],

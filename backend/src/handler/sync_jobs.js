@@ -10,6 +10,12 @@ const JobStatus = require('../consts/job_status');
 const BusinessCode = require('../consts/business_code');
 
 
+const JobIdPattern = /^[a-f0-9]{32}$/;
+
+function isValidJobId(jobId) {
+    return jobId && typeof jobId === 'string' && JobIdPattern.test(jobId);
+}
+
 async function createJob(req, res) {
     const uid = req.account.uid;
     const request = req.body;
@@ -168,10 +174,40 @@ async function listAllJobs(req, res) {
 }
 
 async function getJob(req, res) {
+    const jobId = req.params.id;
+    if (!isValidJobId(jobId)) {
+        res.status(400).send({
+            status: 1,
+            message: "job id is invalid",
+        });
+        return;
+    }
     res.send({
         status: 0,
         data: {
-            jobs: await JobManager.getJob(req.account.uid, req.params.id),
+            jobs: await JobManager.getJob(req.account.uid, jobId),
+        }
+    });
+}
+
+async function deleteJob(req, res) {
+    const uid = req.account.uid;
+    const jobId = req.params.id;
+
+    if (!isValidJobId(jobId)) {
+        res.status(400).send({
+            status: 1,
+            message: "job id is invalid",
+        });
+        return;
+    }
+
+    await JobManager.deleteJob(uid, jobId);
+    res.send({
+        status: 0,
+        data: {
+            deleted: true,
+            jobId: jobId,
         }
     });
 }
@@ -180,4 +216,5 @@ module.exports = {
     createJob: createJob,
     listAllJobs: listAllJobs,
     getJob: getJob,
+    deleteJob: deleteJob,
 }

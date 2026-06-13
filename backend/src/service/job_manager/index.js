@@ -3,9 +3,22 @@ const asyncFs = require('../../utils/fs');
 const genUUID = require('../../utils/uuid');
 const { lock, unlock } = require('../../utils/simple_locker');
 const JobStatus = require('../../consts/job_status');
+const path = require('path');
 
 const DataPath = `${__dirname}/../../../.profile/data`;
 const JobDataPath = `${DataPath}/jobs`;
+const JobIdPattern = /^[a-f0-9]{32}$/;
+
+function isValidJobId(jobId) {
+    return jobId && typeof jobId === 'string' && JobIdPattern.test(jobId);
+}
+
+function isPathWithinJobDir(filePath, userJobPath) {
+    const normalizedFilePath = path.normalize(filePath);
+    const normalizedUserJobPath = path.normalize(userJobPath);
+    return normalizedFilePath.startsWith(normalizedUserJobPath + path.sep) ||
+           normalizedFilePath === normalizedUserJobPath;
+}
 
 const JobManagerInitTime = Date.now();
 
@@ -25,7 +38,7 @@ async function listJobs(uid) {
 
 async function getJob(uid, jobId) {
     const jobFile = await getJobFilePath(uid, jobId, false);
-    if (!await asyncFs.asyncFileExisted(jobFile)) {
+    if (!jobFile || !await asyncFs.asyncFileExisted(jobFile)) {
         return null;
     }
     const fileText = await asyncFs.asyncReadFile(jobFile);
@@ -42,10 +55,14 @@ async function updateJob(uid, jobId, info) {
         return false;
     }
     const job = await getJob(uid, jobId);
+    if (!job) {
+        unlock(lockKey);
+        return false;
+    }
     if (info.desc) {
         job.desc = info.desc;
     }
-    if (info.progress) {
+    if (info.progress !== undefined && info.progress !== null) {
         job.progress = info.progress;
     }
     if (info.status) {
@@ -70,6 +87,10 @@ async function updateJob(uid, jobId, info) {
         job.data = info.data;
     }
     const jobFile = await getJobFilePath(uid, jobId);
+    if (!jobFile) {
+        unlock(lockKey);
+        return false;
+    }
     await asyncFs.asyncWriteFile(jobFile, JSON.stringify(job));
     
     unlock(lockKey);
@@ -95,8 +116,15 @@ async function createJob(uid, job = {
 }
 
 async function deleteJob(uid, jobId) {
+    if (!isValidJobId(jobId)) {
+        return false;
+    }
     await removeJobIdFromUserJobList(uid, jobId);
-    await asyncFs.asyncUnlinkFile(await getJobFilePath(uid, jobId, false));
+    const jobFile = await getJobFilePath(uid, jobId, false);
+    if (jobFile && await asyncFs.asyncFileExisted(jobFile)) {
+        await asyncFs.asyncUnlinkFile(jobFile);
+    }
+    return true;
 }
 
 async function addJobIdToUserJobList(uid, jobId) {
@@ -139,27 +167,36 @@ async function getUserJobs(uid) {
 }
 
 async function getJobFilePath(uid, jobId, createIfNotExist = true) {
-    const path = `${await getUserJobPath(uid)}/${jobId}`;
-    if (createIfNotExist && !await asyncFs.asyncFileExisted(path)) {
-        await asyncFs.asyncWriteFile(path, '{}');
+    if (!isValidJobId(jobId)) {
+        return null;
     }
-    return path;
+    const userJobPath = await getUserJobPath(uid);
+    const constructedPath = `${userJobPath}/${jobId}`;
+    const normalizedPath = path.normalize(constructedPath);
+    if (!isPathWithinJobDir(normalizedPath, userJobPath)) {
+        logger.error(`invalid job path, uid: ${uid}, jobId: ${jobId}`);
+        return null;
+    }
+    if (createIfNotExist && !await asyncFs.asyncFileExisted(normalizedPath)) {
+        await asyncFs.asyncWriteFile(normalizedPath, '{}');
+    }
+    return normalizedPath;
 }
 
 async function getJobListFilePath(uid, createIfNotExist = true) {
-    const path = `${await getUserJobPath(uid)}/list`;
-    if (createIfNotExist && !await asyncFs.asyncFileExisted(path)) {
-        await asyncFs.asyncWriteFile(path, '{}');
+    const listFilePath = `${await getUserJobPath(uid)}/list`;
+    if (createIfNotExist && !await asyncFs.asyncFileExisted(listFilePath)) {
+        await asyncFs.asyncWriteFile(listFilePath, '{}');
     }
-    return path;
+    return listFilePath;
 }
 
 async function getUserJobPath(uid, createIfNotExist = true) {
-    const path = `${JobDataPath}/${uid}`;
-    if (createIfNotExist && !await asyncFs.asyncFileExisted(path)) {
-        await asyncFs.asyncMkdir(path, { recursive: true });
+    const dirPath = `${JobDataPath}/${uid}`;
+    if (createIfNotExist && !await asyncFs.asyncFileExisted(dirPath)) {
+        await asyncFs.asyncMkdir(dirPath, { recursive: true });
     }
-    return path;
+    return dirPath;
 }
 
 async function findActiveJobByArgs(uid, args) {

@@ -15,6 +15,7 @@ const asyncWrapper = (cb) => {
 router.post('/api/sync-jobs', asyncWrapper(SyncJob.createJob));
 router.get('/api/sync-jobs', asyncWrapper(SyncJob.listAllJobs));
 router.get('/api/sync-jobs/:id', asyncWrapper(SyncJob.getJob));
+router.delete('/api/sync-jobs/:id', asyncWrapper(SyncJob.deleteJob));
 
 router.get('/api/songs', asyncWrapper(Songs.search));
 router.get('/api/songs/:source/:id/playUrl', asyncWrapper(Songs.getPlayUrl));
